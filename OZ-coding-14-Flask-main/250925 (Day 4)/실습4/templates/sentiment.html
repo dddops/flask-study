@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>실시간 감정 분석</title>
+    </head>
+    <body>
+        <h1>실시간 감정 분석 실습</h1>
+        <input id="msg" placeholder="영어로 입력하세요..." />
+        <p id="status"></p>
+
+        <script>
+            let ws = new WebSocket("ws://127.0.0.1:5000/ws");
+
+            // 입력 이벤트 → 서버로 전송
+            document.getElementById("msg").addEventListener("input", () => {
+                let text = document.getElementById("msg").value;
+                if (text.trim() !== "") {
+                    ws.send(text);
+                }
+            });
+
+            // 서버에서 받은 감정 결과 표시
+            ws.onmessage = (event) => {
+                document.getElementById("status").innerText = event.data;
+            };
+        </script>
+    </body>
+</html>
