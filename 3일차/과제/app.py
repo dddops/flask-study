@@ -6,7 +6,7 @@ from models import User, Board
 
 app = Flask(__name__)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:0416@localhost/oz'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:비밀번호@localhost/oz'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
