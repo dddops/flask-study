@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>JWT 기반 Todo 앱</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f4f4f9; color: #333; max-width: 600px; margin: 40px auto; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 8px; }
+        h1, h2 { text-align: center; color: #5a5a5a; }
+        #login-section, #todo-section { background: #fff; padding: 20px; border-radius: 5px; margin-top: 20px; }
+        input[type="text"], input[type="password"] { width: calc(100% - 22px); padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        button { width: 100%; padding: 10px; background-color: #5c67f2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #4a54e1; }
+        ul { list-style-type: none; padding: 0; }
+        li { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
+        li:last-child { border-bottom: none; }
+        li.completed span { text-decoration: line-through; color: #aaa; }
+        .delete-btn { margin-left: auto; background: #ff4d4d; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer; font-size: 12px; }
+        .delete-btn:hover { background: #e60000; }
+        #logout-btn { background-color: #aaa; margin-top: 20px; }
+        #logout-btn:hover { background-color: #888; }
+    </style>
+</head>
+<body>
+
+    <h1>Todo List</h1>
+
+    <!-- 로그인 섹션 -->
+    <div id="login-section">
+        <h2>로그인</h2>
+        <form id="login-form">
+            <input type="text" id="username" placeholder="사용자 이름" required>
+            <input type="password" id="password" placeholder="비밀번호" required>
+            <button type="submit">로그인</button>
+        </form>
+    </div>
+
+    <!-- Todo 앱 섹션 (로그인 후 표시) -->
+    <div id="todo-section" style="display:none;">
+        <h2 id="welcome-msg"></h2>
+        <form id="add-todo-form">
+            <input type="text" id="todo-title" placeholder="새로운 할 일 추가..." required>
+            <button type="submit">추가</button>
+        </form>
+        <ul id="todos-list"></ul>
+        <button id="logout-btn">로그아웃</button>
+    </div>
+
+    <script>
+        const loginSection = document.getElementById('login-section');
+        const todoSection = document.getElementById('todo-section');
+        const loginForm = document.getElementById('login-form');
+        const addTodoForm = document.getElementById('add-todo-form');
+        const todosList = document.getElementById('todos-list');
+        const welcomeMsg = document.getElementById('welcome-msg');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        let accessToken = null;
+
+        // 1. 로그인 처리
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const response = await fetch('/login/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                accessToken = data.access_token;
+                loginSection.style.display = 'none';
+                todoSection.style.display = 'block';
+                welcomeMsg.textContent = `${username}님, 환영합니다!`;
+                await fetchTodos();
+            } else {
+                alert('로그인 실패! 아이디 또는 비밀번호를 확인하세요.');
+            }
+        });
+
+        // 2. Todo 목록 가져오기
+        async function fetchTodos() {
+            if (!accessToken) return;
+            const response = await fetch('/todo/', {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            const todos = await response.json();
+            todosList.innerHTML = '';
+            todos.forEach(todo => {
+                const li = document.createElement('li');
+                li.className = todo.completed ? 'completed' : '';
+                li.innerHTML = `
+                    <input type="checkbox" onchange="updateTodo(${todo.id}, this.checked)" ${todo.completed ? 'checked' : ''}>
+                    <span>${todo.title}</span>
+                    <button class="delete-btn" onclick="deleteTodo(${todo.id})">삭제</button>
+                `;
+                todosList.appendChild(li);
+            });
+        }
+
+        // 3. 새 Todo 추가
+        addTodoForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('todo-title').value;
+            if (!title) return;
+
+            const response = await fetch('/todo/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify({ title })
+            });
+
+            if (response.ok) {
+                document.getElementById('todo-title').value = '';
+                await fetchTodos();
+            } else {
+                alert('Todo 추가에 실패했습니다.');
+            }
+        });
+
+        // 4. Todo 업데이트 (완료/미완료)
+        async function updateTodo(id, completed) {
+            const response = await fetch(`/todo/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify({ completed })
+            });
+
+            if (response.ok) {
+                await fetchTodos();
+            } else {
+                alert('Todo 업데이트에 실패했습니다.');
+            }
+        }
+
+        // 5. Todo 삭제
+        async function deleteTodo(id) {
+            if (!confirm('정말로 삭제하시겠습니까?')) return;
+
+            const response = await fetch(`/todo/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+
+            if (response.ok) {
+                await fetchTodos();
+            } else {
+                alert('Todo 삭제에 실패했습니다.');
+            }
+        }
+
+        // 6. 로그아웃 처리
+        logoutBtn.addEventListener('click', () => {
+            accessToken = null;
+            loginSection.style.display = 'block';
+            todoSection.style.display = 'none';
+            loginForm.reset();
+            todosList.innerHTML = '';
+        });
+
+        // 전역 스코프에 함수 노출 (HTML 인라인 이벤트 핸들러에서 호출하기 위함)
+        window.updateTodo = updateTodo;
+        window.deleteTodo = deleteTodo;
+    </script>
+
+</body>
+</html>
